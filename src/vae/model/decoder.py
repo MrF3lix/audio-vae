@@ -23,7 +23,7 @@ class Decoder(nn.Module):
 
     def forward(self, z: Tensor, masks: list[Tensor] | None) -> Tensor:
         x = self.conv_in(z)
-        rev_masks = reversed(masks) if masks is not None else None
+        rev_masks = list(reversed(masks)) if masks is not None else None
 
         for i, stage in enumerate(self.stages):
             mask = rev_masks[i] if rev_masks is not None else None

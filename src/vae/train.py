@@ -1,20 +1,79 @@
-
+import torch
 import logging
 import hydra
 import rootutils
 from pathlib import Path
 from omegaconf import DictConfig, OmegaConf
 
-from vae.model.vae import VAE
-
+from vae.training.utils import seed_everything, resolve_device, count_parameters, plot_mel
+from vae.training.loggers import build_logger
+from vae.training.trainer import Trainer
 
 rootutils.setup_root(__file__, indicator=".project-root", pythonpath=True)
 CONFIG_PATH = str(Path(__file__).resolve().parents[2] / "configs")
 log = logging.getLogger(__name__)
 
+
+def make_validate(loader, device, logger, n_samples):
+    @torch.no_grad()
+    def validate(model, step):
+        sums = {"loss": 0.0, "recon": 0.0, "kl": 0.0}
+        n_frames = 0
+        originals, reconstructions = [], []
+        for batch in loader:
+            mel, lengths = batch["mel"].to(device), batch["lengths"].to(device)
+            out = model(mel, lengths, sample=False)
+            frames = int(lengths.sum())
+            for key in sums:
+                sums[key] += float(out[key]) * frames
+            n_frames += frames
+            for i in range(mel.shape[0]):
+                if len(originals) < n_samples:
+                    n = int(lengths[i])
+                    originals.append(mel[i, :, :n].cpu())
+                    reconstructions.append(out["mel_hat"][i, :, :n].cpu())
+        for i, (orig, recon) in enumerate(zip(originals, reconstructions)):
+            logger.log_image(f"mel/{i}", plot_mel(orig.numpy(), recon.numpy(), titles=["original", "reconstruction"]), step)
+
+        return {f"val/{k}": v / max(n_frames, 1) for k, v in sums.items()}
+
+    return validate
+
+
 def train(cfg: DictConfig):
-    log.info(cfg)
-    return
+    seed_everything(cfg.seed)
+    device = resolve_device(cfg.trainer.device)
+
+    log.info("Config:\n%s", OmegaConf.to_yaml(cfg, resolve=True))
+    log.info("Device: %s", device)
+
+    datamodule = hydra.utils.instantiate(cfg.data)
+    model = hydra.utils.instantiate(cfg.model).to(device)
+    log.info("Parameters: %.2f M", count_parameters(model) / 1e6)
+    optimizer = hydra.utils.instantiate(cfg.optimizer)(model.parameters())
+    logger = build_logger(cfg)
+
+    tcfg = cfg.trainer
+    validate = make_validate(datamodule.valid_dataloader(), device, logger, tcfg.n_audio_samples)
+
+    trainer = Trainer(
+        cfg,
+        model,
+        optimizer,
+        datamodule.train_dataloader(),
+        device,
+        logger,
+        validate,
+        extra_state={"mel_stats": OmegaConf.to_container(cfg.data.mel_stats)}
+    )
+
+    if cfg.ckpt_path:
+        trainer.resume(cfg.ckpt_path)
+
+    best = trainer.fit()
+    logger.close()
+
+    return best
 
 
 @hydra.main(version_base="1.3", config_path=CONFIG_PATH, config_name="train.yaml")

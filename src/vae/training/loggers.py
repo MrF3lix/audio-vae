@@ -39,7 +39,7 @@ class TensorBoardLogger:
 
 
 class WandbLogger:
-    def __init__(self, save_dir: str, project: str, name: str | None = None, id: str | None = None,
+    def __init__(self, save_dir: str, project: str, id: str | None = None,
                  offline: bool = False, tags=None, entity: str | None = None):  # pylint: disable=redefined-builtin
         import os  # pylint: disable=import-outside-toplevel
 
@@ -50,7 +50,7 @@ class WandbLogger:
         Path(save_dir).mkdir(parents=True, exist_ok=True)
         self.wandb = wandb
         self.run = wandb.init(
-            project=project, entity=entity, name=name, id=id, dir=save_dir, tags=list(tags or []),
+            project=project, entity=entity, id=id, dir=save_dir, tags=list(tags or []),
             mode="offline" if offline else "online", resume="allow" if id else None,
         )
         log.info("wandb run: %s", self.run.url)
