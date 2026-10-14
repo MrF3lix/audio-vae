@@ -21,7 +21,7 @@ source scripts/slurm_setup.sh
 EXP_NAME="${EXP_NAME:-be_vae}"
 RUN_DIR="${RUN_DIR:-logs/train_vae/${EXP_NAME}/runs/$(date +%Y-%m-%d_%H-%M-%S)_${SLURM_JOB_ID:-manual}}"
 run mkdir -p "${RUN_DIR}"
-echo "[$(date +%T)] tts-train-vae experiment=${EXP_NAME} -> ${RUN_DIR}"
+echo "[$(date +%T)] vae-train experiment=${EXP_NAME} -> ${RUN_DIR}"
 
 RESUME=()
 if [ -f "${RUN_DIR}/checkpoints/last.pt" ]; then
@@ -32,7 +32,7 @@ fi
 uv lock
 uv sync --extra "${ACCEL_EXTRA}" --extra wandb
 
-run uv run --no-sync train-vae \
+run uv run --no-sync vae-train \
     experiment="${EXP_NAME}" \
     hydra.run.dir="${RUN_DIR}" \
     ${RESUME[@]+"${RESUME[@]}"} \
