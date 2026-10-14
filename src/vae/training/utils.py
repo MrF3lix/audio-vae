@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import hydra
 import copy
 import torch
 import random
@@ -109,3 +110,11 @@ def plot_mel(*mels: np.ndarray, titles=None) -> np.ndarray:
     data = np.asarray(fig.canvas.buffer_rgba())[..., :3].copy()
     plt.close(fig)
     return data
+
+def model_from_checkpoint(ckpt: dict, device="cpu", use_ema: bool = True) -> nn.Module:
+    """Rebuild the model from the config stored in a checkpoint and load its (EMA) weights."""
+    model = hydra.utils.instantiate(ckpt["cfg"]["model"])
+    state = ckpt["ema"] if use_ema and ckpt.get("ema") is not None else ckpt["model"]
+    model.load_state_dict(state)
+    return model.to(device).eval()
+

@@ -21,6 +21,7 @@ dependencies = [
 [project.scripts]
 
 vae-train = "vae.train:main"
+vae-latent-stats = "vae.cli.vae_latent_stats:main"
 
 
 [build-system]
