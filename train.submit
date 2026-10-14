@@ -18,7 +18,7 @@ cd "${SLURM_SUBMIT_DIR:-$(pwd)}"
 source scripts/slurm_setup.sh
 
 
-EXP_NAME="${EXP_NAME:-be_vae}"
+EXP_NAME="${EXP_NAME:-vae_be}"
 RUN_DIR="${RUN_DIR:-logs/train_vae/${EXP_NAME}/runs/$(date +%Y-%m-%d_%H-%M-%S)_${SLURM_JOB_ID:-manual}}"
 run mkdir -p "${RUN_DIR}"
 echo "[$(date +%T)] vae-train experiment=${EXP_NAME} -> ${RUN_DIR}"
