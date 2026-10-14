@@ -1,0 +1,43 @@
+#!/bin/bash
+#SBATCH --time=720
+#SBATCH --job-name=audio-vae
+#SBATCH --ntasks=1
+#SBATCH --cpus-per-task=10
+#SBATCH --nodes=1
+#SBATCH --partition=gpu_top
+#SBATCH --mem=24G
+#SBATCH --gres=gpu:1
+#SBATCH --account=cai_nlp
+#SBATCH --mail-user=saaf@zhaw.ch
+#SBATCH --output=logs/slurm/%j_%N.out
+#SBATCH --error=logs/slurm/%j_%N.err
+#SBATCH --open-mode=append
+
+set -euo pipefail
+cd "${SLURM_SUBMIT_DIR:-$(pwd)}"
+source scripts/slurm_setup.sh
+
+
+EXP_NAME="${EXP_NAME:-be_vae}"
+RUN_DIR="${RUN_DIR:-logs/train_vae/${EXP_NAME}/runs/$(date +%Y-%m-%d_%H-%M-%S)_${SLURM_JOB_ID:-manual}}"
+run mkdir -p "${RUN_DIR}"
+echo "[$(date +%T)] tts-train-vae experiment=${EXP_NAME} -> ${RUN_DIR}"
+
+RESUME=()
+if [ -f "${RUN_DIR}/checkpoints/last.pt" ]; then
+    RESUME=(ckpt_path="${RUN_DIR}/checkpoints/last.pt")
+    echo "[$(date +%T)] resuming from ${RUN_DIR}/checkpoints/last.pt"
+fi
+
+run uv run --no-sync train-vae \
+    experiment="${EXP_NAME}" \
+    hydra.run.dir="${RUN_DIR}" \
+    ${RESUME[@]+"${RESUME[@]}"} \
+    trainer.device=cuda \
+    data.num_workers=8 \
+    logger=wandb \
+    logger.wandb.id="vae_$(basename "${RUN_DIR}")" \
+    "$@"
+
+echo "[$(date +%T)] fitting latent statistics"
+run uv run --no-sync vae-latent-stats --ckpt "${RUN_DIR}/checkpoints/best.pt" --device cuda --workers 8
