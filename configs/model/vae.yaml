@@ -1,0 +1,11 @@
+_target_: vae.model.vae.VAE
+
+n_mels: ${data.mel.n_mels}
+
+latent_dim: 32
+compression: 4
+channels: [192, 256, 384]
+blocks_per_level: 2
+kernel_size: 7
+
+beta: 0.005

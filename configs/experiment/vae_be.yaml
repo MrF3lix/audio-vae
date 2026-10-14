@@ -1,0 +1,9 @@
+# @package _global_
+
+defaults:
+  - override /data: be_vocbulwark
+  - override /model: vae
+  - override /logger: wandb
+
+run_name: vae_be
+tags: ["be", "vae", "vocbulwark", "96mel"]

@@ -1,0 +1,15 @@
+device: auto
+precision: fp32
+
+max_steps: 60000
+warmup_steps: 1000
+grad_clip: 5.0
+
+ema_decay: 0.999
+
+log_every_n_steps: 50
+val_every_n_steps: 1000
+ckpt_every_n_steps: 1000
+
+n_audio_samples: 3
+audio_every_n_vals: 2
