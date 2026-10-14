@@ -81,7 +81,7 @@ class Trainer:
     def _validate(self):
         self.n_vals += 1
         self.eval_model.eval()
-        metrics = self.validate(self.eval_model, self.step)
+        metrics = self.validate(self.eval_model, self.step, self.n_vals)
         self.model.train()
         self.logger.log_scalars(metrics, self.step)
         log.info("step %d  " + "  ".join(f"{k} {v:.4f}" for k, v in metrics.items()), self.step)

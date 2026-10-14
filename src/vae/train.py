@@ -8,15 +8,16 @@ from omegaconf import DictConfig, OmegaConf
 from vae.training.utils import seed_everything, resolve_device, count_parameters, plot_mel
 from vae.training.loggers import build_logger
 from vae.training.trainer import Trainer
+from vae.training.audio import AudioLogger 
 
 rootutils.setup_root(__file__, indicator=".project-root", pythonpath=True)
 CONFIG_PATH = str(Path(__file__).resolve().parents[2] / "configs")
 log = logging.getLogger(__name__)
 
 
-def make_validate(loader, device, logger, n_samples):
+def make_validate(loader, device, logger, n_samples, audio, audio_every):
     @torch.no_grad()
-    def validate(model, step):
+    def validate(model, step, n_val):
         sums = {"loss": 0.0, "recon": 0.0, "kl": 0.0}
         n_frames = 0
         originals, reconstructions = [], []
@@ -34,6 +35,9 @@ def make_validate(loader, device, logger, n_samples):
                     reconstructions.append(out["mel_hat"][i, :, :n].cpu())
         for i, (orig, recon) in enumerate(zip(originals, reconstructions)):
             logger.log_image(f"mel/{i}", plot_mel(orig.numpy(), recon.numpy(), titles=["original", "reconstruction"]), step)
+        if audio_every > 0 and n_val % audio_every == 0:
+            audio(logger, step, {f"audio/original_{i}": m for i, m in enumerate(originals)}, once=True)
+            audio(logger, step, {f"audio/reconstruction_{i}": m for i, m in enumerate(reconstructions)})
 
         return {f"val/{k}": v / max(n_frames, 1) for k, v in sums.items()}
 
@@ -54,7 +58,8 @@ def train(cfg: DictConfig):
     logger = build_logger(cfg)
 
     tcfg = cfg.trainer
-    validate = make_validate(datamodule.valid_dataloader(), device, logger, tcfg.n_audio_samples)
+    audio = AudioLogger(cfg.vocoder, datamodule.valid_set.denormalize, tcfg.audio_every_n_vals > 0, device)
+    validate = make_validate(datamodule.valid_dataloader(), device, logger, tcfg.n_audio_samples, audio, tcfg.audio_every_n_vals)
 
     trainer = Trainer(
         cfg,
