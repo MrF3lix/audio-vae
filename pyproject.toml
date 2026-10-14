@@ -11,9 +11,9 @@ dependencies = [
     "numpy>=2.5.4",
     "rootutils>=1.0.7",
     "soundfile>=0.14.0",
-    "torch>=2.14.1",
-    "torchaudio>=2.11.0",
-    "transformers>=5.19.0",
+    "torch>=2.8.0,<2.12",
+    "torchaudio>=2.8.0,<2.12",
+    "transformers>=4.57,<5",
     "wandb>=0.30.0",
 ]
 
