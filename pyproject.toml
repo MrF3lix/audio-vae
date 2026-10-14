@@ -17,6 +17,31 @@ dependencies = [
     "wandb>=0.30.0",
 ]
 
+[[tool.uv.index]]
+name = "pytorch-cu128"
+url = "https://download.pytorch.org/whl/cu128"
+explicit = true
+
+[[tool.uv.index]]
+name = "pytorch-rocm"
+url = "https://download.pytorch.org/whl/rocm7.2"
+explicit = true
+
+[tool.uv.sources]
+torch = [
+    { index = "pytorch-cu128", extra = "cu128" },
+    { index = "pytorch-rocm", extra = "rocm" },
+]
+torchaudio = [
+    { index = "pytorch-cu128", extra = "cu128" },
+    { index = "pytorch-rocm", extra = "rocm" },
+]
+
+triton-rocm = [{ index = "pytorch-rocm", extra = "rocm" }]
+
+[tool.uv]
+conflicts = [[{ extra = "cu128" }, { extra = "rocm" }]]
+
 
 [project.scripts]
 

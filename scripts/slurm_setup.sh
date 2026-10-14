@@ -44,4 +44,4 @@ if [ "${ACCEL_EXTRA}" = "rocm" ]; then
     trap 'rm -rf "${MIOPEN_USER_DB_PATH}"' EXIT
 fi
 
-run uv sync --extra "${ACCEL_EXTRA}" --extra wandb
+uv sync --extra "${ACCEL_EXTRA}" --extra wandb
