@@ -33,7 +33,7 @@ else
 fi
 echo "[$(date +%T)] Node $(hostname): detected ${ACCEL_EXTRA} GPUs"
 
-export UV_PROJECT_ENVIRONMENT="/raid/persistent_scratch/saaf/venvs/test-tts-${ACCEL_EXTRA}"
+export UV_PROJECT_ENVIRONMENT="/raid/persistent_scratch/saaf/venvs/audio-vae-${ACCEL_EXTRA}"
 export UV_LINK_MODE=copy
 export UV_HTTP_TIMEOUT=900
 
@@ -44,4 +44,4 @@ if [ "${ACCEL_EXTRA}" = "rocm" ]; then
     trap 'rm -rf "${MIOPEN_USER_DB_PATH}"' EXIT
 fi
 
-uv sync --extra "${ACCEL_EXTRA}" --extra wandb
+run uv sync --extra "${ACCEL_EXTRA}" --extra wandb
