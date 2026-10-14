@@ -29,6 +29,9 @@ if [ -f "${RUN_DIR}/checkpoints/last.pt" ]; then
     echo "[$(date +%T)] resuming from ${RUN_DIR}/checkpoints/last.pt"
 fi
 
+uv lock
+uv sync --extra "${ACCEL_EXTRA}" --extra wandb
+
 run uv run --no-sync train-vae \
     experiment="${EXP_NAME}" \
     hydra.run.dir="${RUN_DIR}" \
