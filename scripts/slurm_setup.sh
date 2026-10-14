@@ -17,6 +17,13 @@ if [ ! -f .env ] && [ -z "${WANDB_API_KEY:-}" ]; then
     echo "WARNING: no .env with WANDB_API_KEY in $(pwd); wandb logging will fail (copy .env from your Mac)" >&2
 fi
 
+# Batch jobs run a non-interactive shell that skips ~/.bashrc, so uv's install dir isn't on PATH.
+export PATH="${HOME}/.local/bin:${HOME}/.cargo/bin:${PATH}"
+if ! command -v uv >/dev/null 2>&1; then
+    echo "ERROR: uv not found on $(hostname) (PATH=${PATH}). Run 'which uv' on the login node and add its dir above." >&2
+    exit 1
+fi
+
 if [ "${DRY_RUN:-0}" = "1" ]; then
     ACCEL_EXTRA=cu128
     echo "[dry run] assuming ${ACCEL_EXTRA}, skipping GPU check and uv sync"
