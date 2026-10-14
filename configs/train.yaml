@@ -7,6 +7,7 @@ defaults:
   - optimizer: adamw
   - trainer: default
   - logger: wandb
+  - vocoder: vocbulwark
   - paths: default
   - hydra: default
   - experiment: null
