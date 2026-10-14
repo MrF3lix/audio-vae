@@ -17,6 +17,15 @@ dependencies = [
     "wandb>=0.30.0",
 ]
 
+[project.optional-dependencies]
+cu128 = ["torch==2.8.0", "torchaudio==2.8.0"]
+rocm = [
+    "torch==2.11.0",
+    "torchaudio==2.11.0",
+    "triton-rocm; platform_machine == 'x86_64' and sys_platform == 'linux'",
+]
+wandb = ["wandb"]
+
 [[tool.uv.index]]
 name = "pytorch-cu128"
 url = "https://download.pytorch.org/whl/cu128"
