@@ -6,7 +6,7 @@ A uv workspace with three packages:
 |---|---|---|
 | [`common`](packages/common) | mel front-end, vocoder wrapper, filelists, mel dataset, training loop, loggers, shared hydra config groups (`trainer`, `optimizer`, `logger`, `paths`, `hydra`, `vocoder`) | – |
 | [`vae`](packages/vae) | mel VAE, latent statistics, latent cache, `load_pretrained` | `common` |
-| [`gen`](packages/gen) | text-conditioned generative models in the VAE latent space (flow matching) | `common`, `vae` |
+| [`gen`](packages/gen) | text-conditioned generative models in the VAE latent space (flow matching, energy matching) | `common`, `vae` |
 
 `gen` only uses the VAE through `vae.load_pretrained(ckpt)` and the latent cache (`vae.latents`),
 so the VAE stays usable on its own.
@@ -62,10 +62,40 @@ plus a total-length predictor. No monotonic alignment, since the Standard German
 Bernese speech differ in word order and vocabulary. Validation logs `val/fm` (flow loss at fixed
 noise), `val/dur_abs_err_s` (length error in seconds), mels and audio of generated samples.
 
-Synthesis:
+### 4. Text-conditioned energy matching
+
+```bash
+uv run gen-train experiment=em_be                      # phase 1 (OT) to step 90k, then phase 2 (OT + CD)
+uv run gen-train experiment=em_be model.cd_weight=0    # phase 1 only
+```
+
+Cluster: `EXP_NAME=em_be sbatch train_gen.submit`.
+
+Same text encoder, length predictor and transformer as flow matching, but time-independent and
+with a scalar head: `V(z; text)` is the sum of per-frame outputs, and samples follow
+`dz/dτ = -∇V` (Balcerak et al., "Energy Matching"; the recipe of the generative-modeling
+notebook 11).
+- **Phase 1:** regress `∇V(z_t)` onto `z_0 - z_1` on minibatch-OT pairs. The loss is a function
+  of a gradient, so steps cost about 1.5× a flow-matching step, and attention runs on the math
+  kernel.
+- **Phase 2 (`model.cd_start_step`):** add contrastive divergence with Langevin negatives under
+  the same text, on `model.neg_batch` utterances per batch. It is about 4–5× slower per step
+  than phase 1, so keep it short.
+
+Validation logs `val/ot` plus `val/v_data` / `val/v_noise` (energy per frame of data and of
+noise; after phase 2 the data should sit clearly lower). The default sampler (`sampling/em.yaml`)
+integrates the ODE up to `τ* = 1`, which is all a phase-1 model supports. After phase 2, also
+try the Langevin tail: `--sampling tau_s=2.0 --sampling eps_max=0.02`.
+
+### Synthesis (both models)
 
 ```bash
 uv run gen-synthesize --ckpt logs/train_gen/fm_be/runs/<date>/checkpoints/best.pt \
     --text "Guten Morgen, wie geht es Ihnen?" --out synth/
 uv run gen-synthesize --ckpt ... --filelist data/filelists/be/val.txt --limit 10 --guidance-scale 3 --out synth/
+uv run gen-synthesize --ckpt logs/train_gen/em_be/runs/<date>/checkpoints/best.pt \
+    --text "..." --sampling tau_s=2.0 --sampling eps_max=0.02 --out synth/
 ```
+
+Sampler defaults come from the run's `sampling` config; `--sampling KEY=VALUE` overrides them
+(`n_steps`, `method` for flow matching; `dt`, `tau_s`, `eps_max` for energy matching).

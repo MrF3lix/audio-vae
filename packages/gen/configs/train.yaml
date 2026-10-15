@@ -4,6 +4,7 @@ defaults:
   - _self_
   - data: be_latent_text
   - model: fm
+  - sampling: fm
   - optimizer: adamw
   - trainer: default
   - logger: wandb
@@ -31,11 +32,5 @@ ckpt_path: null
 
 # Trained VAE with fitted latent statistics (`vae-latent-stats`); defines the latent space.
 vae_ckpt: ???
-
-# Sampler used for the validation samples (and as the default of gen-synthesize).
-sampling:
-  n_steps: 32
-  guidance_scale: 2.0
-  method: midpoint
 
 seed: 1234

@@ -1,0 +1,4 @@
+# Flow-matching ODE sampler, used for validation samples and as gen-synthesize's default.
+n_steps: 32
+method: midpoint  # euler | midpoint (2 evaluations per step)
+guidance_scale: 2.0

@@ -1,0 +1,7 @@
+# Energy-matching Langevin sampler, used for validation samples and as gen-synthesize's default.
+# tau_s = tau_star (model.tau_star, 1.0) and eps_max = 0 integrate the ODE dz/dτ = -∇V, which is
+# all a phase-1 model supports. After phase 2 (CD), try tau_s: 2.0, eps_max: 0.01-0.05.
+dt: 0.05
+tau_s: 1.0
+eps_max: 0.0
+guidance_scale: 2.0

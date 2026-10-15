@@ -17,38 +17,18 @@ from torch import Tensor, nn
 
 from common.lengths import sequence_mask
 from gen.model.backbone import LatentTransformer
-from gen.model.duration import TotalDurationPredictor
+from gen.model.base import TextConditionedLatentModel
 
 
-class LatentFlowMatching(nn.Module):
+class LatentFlowMatching(TextConditionedLatentModel):
     def __init__(self, text_encoder: nn.Module, latent_dim: int = 32, backbone: dict | None = None,
                  duration: dict | None = None, sigma_min: float = 1e-4, p_uncond: float = 0.1,
                  t_sampling: str = "logit_normal", duration_weight: float = 1.0):
-        super().__init__()
+        super().__init__(text_encoder, latent_dim, duration, p_uncond, duration_weight)
         if t_sampling not in ("uniform", "logit_normal"):
             raise ValueError(f"t_sampling must be uniform or logit_normal, got {t_sampling!r}")
-        self.latent_dim, self.sigma_min, self.p_uncond = latent_dim, sigma_min, p_uncond
-        self.t_sampling, self.duration_weight = t_sampling, duration_weight
-        self.text_encoder = text_encoder
-        text_dim = text_encoder.dim
-        self.backbone = LatentTransformer(latent_dim, text_dim, **(backbone or {}))
-        self.duration = TotalDurationPredictor(text_dim, **(duration or {}))
-        self.null_text = nn.Parameter(torch.randn(1, 1, text_dim) * text_dim**-0.5)
-
-    # ------------------------------------------------------------------ conditioning
-    def encode_text(self, texts: list[str], device) -> tuple[Tensor, Tensor]:
-        return self.text_encoder.encode(texts, device)
-
-    def null_condition(self, h: Tensor, h_mask: Tensor) -> tuple[Tensor, Tensor]:
-        """The unconditional input: one learned token, the rest masked."""
-        null = self.null_text.to(h.dtype).expand(h.shape[0], h.shape[1], -1)
-        null_mask = torch.zeros_like(h_mask)
-        null_mask[:, 0] = True
-        return null * null_mask[..., None], null_mask
-
-    def drop_condition(self, h: Tensor, h_mask: Tensor, drop: Tensor) -> tuple[Tensor, Tensor]:
-        null, null_mask = self.null_condition(h, h_mask)
-        return torch.where(drop[:, None, None], null, h), torch.where(drop[:, None], null_mask, h_mask)
+        self.sigma_min, self.t_sampling = sigma_min, t_sampling
+        self.backbone = LatentTransformer(latent_dim, text_encoder.dim, **(backbone or {}))
 
     # ------------------------------------------------------------------ training
     def sample_t(self, n: int, device, dtype=torch.float32) -> Tensor:
@@ -72,19 +52,17 @@ class LatentFlowMatching(nn.Module):
         z, z_lengths = batch["z"], batch["z_lengths"]
         mask = sequence_mask(z_lengths, z.shape[-1])
         h, h_mask = self.encode_text(batch["texts"], z.device)
-
-        # The length predictor sees detached text features: its loss should not shape the encoder.
-        dur_loss = self.duration.loss(self.duration(h.detach(), h_mask), z_lengths)
-
-        if cond_drop and self.p_uncond > 0:
-            drop = torch.rand(z.shape[0], device=z.device) < self.p_uncond
-            h, h_mask = self.drop_condition(h, h_mask, drop)
+        dur_loss = self.duration_loss(h, h_mask, z_lengths)
+        if cond_drop:
+            h, h_mask = self.random_drop(h, h_mask)
         fm_loss = self.flow_loss(z, mask, h, h_mask, noise, t)
         return {"loss": fm_loss + self.duration_weight * dur_loss, "fm": fm_loss, "dur": dur_loss}
 
+    def validation_losses(self, z: Tensor, mask: Tensor, h: Tensor, h_mask: Tensor, noise: Tensor, t: Tensor) -> dict:
+        """Per-frame validation metrics at fixed noise and times (comparable across runs)."""
+        return {"fm": self.flow_loss(z, mask, h, h_mask, noise, t)}
+
     # ------------------------------------------------------------------ inference
-    def predict_lengths(self, h: Tensor, h_mask: Tensor, length_scale: float = 1.0) -> Tensor:
-        return torch.round(torch.exp(self.duration(h, h_mask)) * length_scale).clamp_min(1).long()
 
     def velocity(self, z: Tensor, mask: Tensor, h: Tensor, h_mask: Tensor, t: Tensor,
                  guidance_scale: float = 1.0) -> Tensor:
@@ -105,7 +83,7 @@ class LatentFlowMatching(nn.Module):
         `z_lengths` overrides the length predictor (e.g. the ground-truth lengths, to judge the
         generator independently of it). `method`: `euler` or `midpoint` (2 evaluations per step).
         """
-        device = self.null_text.device
+        device = self.device
         h, h_mask = self.encode_text(texts, device)
         if z_lengths is None:
             z_lengths = self.predict_lengths(h, h_mask, length_scale)
@@ -113,9 +91,7 @@ class LatentFlowMatching(nn.Module):
         mask = sequence_mask(z_lengths, int(z_lengths.max()))
         m = mask[:, None, :].to(h.dtype)
 
-        shape = (len(texts), self.latent_dim, mask.shape[1])
-        z = torch.randn(shape, generator=generator, device="cpu" if generator is not None else device)
-        z = z.to(device, h.dtype) * temperature * m
+        z = self.initial_noise(len(texts), mask.shape[1], generator, h.dtype) * temperature * m
 
         def v(z_, t_):
             return self.velocity(z_, mask, h, h_mask, torch.full((z_.shape[0],), t_, device=device, dtype=h.dtype),

@@ -1,6 +1,7 @@
 """Train a text-conditioned generative model on the VAE's latents.
 
-    uv run gen-train experiment=fm_be
+    uv run gen-train experiment=fm_be     # flow matching
+    uv run gen-train experiment=em_be     # energy matching
 """
 
 import logging
@@ -23,15 +24,16 @@ log = logging.getLogger(__name__)
 
 
 def make_validate(loader, vae, device, logger, audio, cfg):
-    """Validation: flow loss at fixed noise and times (comparable across runs), length error,
-    and `n_audio_samples` syntheses from the first validation texts, decoded and vocoded."""
+    """Validation: the model's losses at fixed noise and times (comparable across runs), length
+    error, and `n_audio_samples` syntheses from the first validation texts, decoded and vocoded."""
     n_samples, audio_every = cfg.trainer.n_audio_samples, cfg.trainer.audio_every_n_vals
+    sampling = OmegaConf.to_container(cfg.sampling, resolve=True)
     seconds_per_frame = vae.compression * vae.mel.hop_length / vae.mel.sample_rate
 
     @torch.no_grad()
     def validate(model, step, n_val):
         gen = torch.Generator().manual_seed(0)
-        fm_sum, dur_sum, err_sum, n_frames, n_utts = 0.0, 0.0, 0.0, 0, 0
+        sums, dur_sum, err_sum, n_frames, n_utts = {}, 0.0, 0.0, 0, 0
         refs = []
         for batch in loader:
             z, z_lengths = batch["z"].to(device), batch["z_lengths"].to(device)
@@ -40,7 +42,8 @@ def make_validate(loader, vae, device, logger, audio, cfg):
             noise = torch.randn(z.shape, generator=gen).to(device)
             t = torch.rand(z.shape[0], generator=gen).to(device)
             frames = int(z_lengths.sum())
-            fm_sum += float(model.flow_loss(z, mask, h, h_mask, noise, t)) * frames
+            for key, value in model.validation_losses(z, mask, h, h_mask, noise, t).items():
+                sums[key] = sums.get(key, 0.0) + float(value) * frames
             n_frames += frames
             log_pred = model.duration(h, h_mask)
             dur_sum += float(model.duration.loss(log_pred, z_lengths)) * z.shape[0]
@@ -52,8 +55,7 @@ def make_validate(loader, vae, device, logger, audio, cfg):
 
         if refs:
             texts = [text for text, _ in refs]
-            out = model.synthesise(texts, n_steps=cfg.sampling.n_steps, guidance_scale=cfg.sampling.guidance_scale,
-                                   method=cfg.sampling.method, generator=torch.Generator().manual_seed(1))
+            out = model.synthesise(texts, generator=torch.Generator().manual_seed(1), **sampling)
             generated, references = [], []
             for i, (_, z_ref) in enumerate(refs):
                 L = int(out["z_lengths"][i])
@@ -67,11 +69,12 @@ def make_validate(loader, vae, device, logger, audio, cfg):
                 audio(logger, step, {f"audio/reference_{i}": m for i, m in enumerate(references)}, once=True)
                 audio(logger, step, {f"audio/generated_{i}": m for i, m in enumerate(generated)})
 
-        return {
-            "val/fm": fm_sum / max(n_frames, 1),
+        metrics = {f"val/{k}": v / max(n_frames, 1) for k, v in sums.items()}
+        metrics.update({
             "val/dur": dur_sum / max(n_utts, 1),
             "val/dur_abs_err_s": err_sum / max(n_utts, 1) * seconds_per_frame,
-        }
+        })
+        return metrics
 
     return validate
 

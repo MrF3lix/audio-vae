@@ -3,6 +3,9 @@
     uv run gen-synthesize --ckpt logs/train_gen/fm_be/runs/<date>/checkpoints/best.pt \
         --text "Guten Morgen, wie geht es Ihnen?" --out synth/
     uv run gen-synthesize --ckpt ... --filelist data/filelists/be/val.txt --limit 10 --out synth/
+    uv run gen-synthesize --ckpt <energy model> --text ... --sampling tau_s=2.0 --sampling eps_max=0.02 --out synth/
+
+Works for flow- and energy-matching checkpoints; sampler defaults come from the run's config.
 
 Writes `<out>/<index>.wav` (or `<stem>.wav` for filelist items) and `<out>/texts.txt`.
 """
@@ -15,6 +18,7 @@ from pathlib import Path
 import hydra
 import soundfile as sf
 import torch
+import yaml
 from omegaconf import OmegaConf
 
 from common.data.filelist import parse_filelist
@@ -30,9 +34,10 @@ def main():
     p.add_argument("--limit", type=int, default=None)
     p.add_argument("--out", type=Path, required=True)
     p.add_argument("--vae-ckpt", type=Path, default=None, help="default: the one the model was trained with")
-    p.add_argument("--n-steps", type=int, default=None)
     p.add_argument("--guidance-scale", type=float, default=None)
-    p.add_argument("--method", default=None, choices=["euler", "midpoint"])
+    p.add_argument("--sampling", action="append", default=[], metavar="KEY=VALUE",
+                   help="override a sampler setting of the run's `sampling` config (repeatable), e.g. "
+                        "n_steps=64 method=euler (flow matching) or tau_s=2.0 eps_max=0.02 dt=0.025 (energy matching)")
     p.add_argument("--length-scale", type=float, default=1.0, help=">1 speaks slower")
     p.add_argument("--temperature", type=float, default=1.0)
     p.add_argument("--batch-size", type=int, default=8)
@@ -58,14 +63,13 @@ def main():
     if not items:
         p.error("nothing to synthesise: pass --text and/or --filelist")
 
-    sampling = cfg.get("sampling", {})
-    kwargs = dict(
-        n_steps=args.n_steps or sampling.get("n_steps", 32),
-        guidance_scale=args.guidance_scale if args.guidance_scale is not None else sampling.get("guidance_scale", 2.0),
-        method=args.method or sampling.get("method", "midpoint"),
-        length_scale=args.length_scale,
-        temperature=args.temperature,
-    )
+    kwargs = OmegaConf.to_container(cfg.sampling, resolve=True) if "sampling" in cfg else {}
+    for item in args.sampling:
+        key, _, value = item.partition("=")
+        kwargs[key] = yaml.safe_load(value)
+    if args.guidance_scale is not None:
+        kwargs["guidance_scale"] = args.guidance_scale
+    kwargs.update(length_scale=args.length_scale, temperature=args.temperature)
     args.out.mkdir(parents=True, exist_ok=True)
     gen = torch.Generator().manual_seed(args.seed)
     with open(args.out / "texts.txt", "w", encoding="utf-8") as f:

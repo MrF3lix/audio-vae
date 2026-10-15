@@ -1,0 +1,42 @@
+defaults:
+  - text_encoder: char
+
+_target_: gen.model.energy_matching.LatentEnergyMatching
+
+latent_dim: null  # set at runtime from the VAE checkpoint
+
+# Same transformer as flow matching, without time input, with a scalar head per frame;
+# V(z; text) = output_scale * sum over valid frames.
+backbone:
+  d_model: 384
+  depth: 8
+  n_heads: 6
+  ff_mult: 4
+  dropout: 0.1
+  conv_pos_kernel: 31
+
+duration:
+  hidden: 256
+  n_layers: 2
+  n_heads: 4
+  dropout: 0.1
+
+p_uncond: 0.1
+duration_weight: 1.0
+output_scale: 1.0
+
+# Phase 1: ∇V(z_t) ≈ z_0 - z_1 on minibatch-OT pairs, t ~ U[0, tau_star].
+tau_star: 1.0
+ot_coupling: true
+
+# Phase 2: contrastive divergence from cd_start_step on (cd_weight 0 = phase 1 only).
+# Each CD step runs neg_steps Langevin steps (forward + backward) on neg_batch utterances, so
+# phase 2 is several times slower per step than phase 1; keep it short (as in the paper).
+cd_weight: 1e-3
+cd_start_step: 90000
+neg_batch: 8        # utterances of each batch that get negatives (half from data, half from noise)
+neg_steps: 20       # Langevin steps per negative chain
+neg_dt: 0.05
+neg_eps_max: 0.05
+trim_alpha: 0.1     # drop this fraction of the highest-energy negatives
+clamp_beta: 0.05    # stop pushing once data sits this far (per frame, / eps) below negatives
