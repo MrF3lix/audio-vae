@@ -1,6 +1,7 @@
 # Workspace root: not a package itself, it only ties the members together and owns the
-# accelerator extras (cu128 / rocm), so `uv sync --extra cu128` installs every member against
-# the right torch build.
+# accelerator extras, so `uv sync --extra <accel>` installs every member against the right torch
+# build: cu128 for Volta and newer (sm_70+), cu126 for Pascal GPUs like the P40 (sm_61, dropped
+# from the cu128+ builds), rocm for AMD. Without an extra, PyPI's torch only runs on sm_75+.
 [project]
 name = "audio-workspace"
 version = "0.1.0"
@@ -10,6 +11,7 @@ requires-python = ">=3.12"
 dependencies = ["common", "vae", "gen"]
 
 [project.optional-dependencies]
+cu126 = ["torch==2.8.0", "torchaudio==2.8.0"]
 cu128 = ["torch==2.8.0", "torchaudio==2.8.0"]
 rocm = [
     "torch==2.11.0",
@@ -20,7 +22,7 @@ wandb = ["wandb"]
 
 [tool.uv]
 package = false
-conflicts = [[{ extra = "cu128" }, { extra = "rocm" }]]
+conflicts = [[{ extra = "cu126" }, { extra = "cu128" }, { extra = "rocm" }]]
 
 [tool.uv.workspace]
 members = ["packages/*"]
@@ -30,14 +32,21 @@ common = { workspace = true }
 vae = { workspace = true }
 gen = { workspace = true }
 torch = [
+    { index = "pytorch-cu126", extra = "cu126" },
     { index = "pytorch-cu128", extra = "cu128" },
     { index = "pytorch-rocm", extra = "rocm" },
 ]
 torchaudio = [
+    { index = "pytorch-cu126", extra = "cu126" },
     { index = "pytorch-cu128", extra = "cu128" },
     { index = "pytorch-rocm", extra = "rocm" },
 ]
 triton-rocm = [{ index = "pytorch-rocm", extra = "rocm" }]
+
+[[tool.uv.index]]
+name = "pytorch-cu126"
+url = "https://download.pytorch.org/whl/cu126"
+explicit = true
 
 [[tool.uv.index]]
 name = "pytorch-cu128"

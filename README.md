@@ -12,8 +12,15 @@ A uv workspace with three packages:
 so the VAE stays usable on its own.
 
 ```bash
-uv sync                       # all packages, editable
+uv sync                       # all packages, editable (Mac / CPU)
+uv sync --extra cu126         # NVIDIA Pascal, e.g. P40 (compute capability 6.x)
+uv sync --extra cu128         # NVIDIA Volta and newer
+uv sync --extra rocm          # AMD
 ```
+
+On a GPU machine pass the same extra to every `uv run` (e.g. `uv run --extra cu126 gen-train ...`)
+or use `uv run --no-sync`; a bare `uv run` re-syncs to the default PyPI torch, which only runs
+on compute capability 7.5+. The `*.submit` scripts pick the extra from the node's GPU.
 
 ### 1. VAE
 

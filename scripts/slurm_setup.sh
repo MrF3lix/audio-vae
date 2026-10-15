@@ -31,7 +31,13 @@ if [ "${DRY_RUN:-0}" = "1" ]; then
 fi
 
 if command -v nvidia-smi >/dev/null 2>&1 && nvidia-smi -L 2>/dev/null | grep -q '^GPU '; then
-    ACCEL_EXTRA=cu128
+    # torch's cu128 builds dropped Pascal (P40/P100, compute capability 6.x); those need cu126.
+    MIN_CC=$(nvidia-smi --query-gpu=compute_cap --format=csv,noheader | sort -n | head -1)
+    if [ "${MIN_CC%%.*}" -lt 7 ]; then
+        ACCEL_EXTRA=cu126
+    else
+        ACCEL_EXTRA=cu128
+    fi
 elif [ -e /dev/kfd ] || (command -v rocm-smi >/dev/null 2>&1 && rocm-smi --showid >/dev/null 2>&1); then
     ACCEL_EXTRA=rocm
 else
