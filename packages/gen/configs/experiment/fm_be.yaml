@@ -12,7 +12,7 @@ run_name: fm_be
 tags: ["be", "flow_matching", "latent", "cross_attention"]
 
 # The 50k-step VAE from 2026-10-14 (val L1 0.088). Needs fitted latent statistics.
-vae_ckpt: ${paths.root_dir}/logs/train_vae/vae_be/runs/2026-10-14_11-32-37/checkpoints/best.pt
+vae_ckpt: ${paths.root_dir}/logs/train_vae/vae_be/runs/2026-10-14_15-06-48_151548/checkpoints/best.pt
 
 trainer:
   max_steps: 100000
