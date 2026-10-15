@@ -1,0 +1,11 @@
+# Characters of the cleaned text, trained from scratch.
+_target_: gen.text.encoders.CharTextEncoder
+dim: 256
+n_layers: 4
+n_heads: 4
+ff_mult: 4
+kernel_size: 3
+prenet_layers: 3
+dropout: 0.1
+cleaner: swiss_german
+symbols: null  # default: every character of the cleaned Bernese corpus

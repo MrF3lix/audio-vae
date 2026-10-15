@@ -1,0 +1,18 @@
+[project]
+name = "vae"
+version = "0.1.0"
+description = "Mel-spectrogram VAE"
+requires-python = ">=3.12"
+dependencies = ["common"]
+
+[project.scripts]
+vae-train = "vae.train:main"
+vae-latent-stats = "vae.cli.vae_latent_stats:main"
+vae-encode-latents = "vae.cli.encode_latents:main"
+
+[tool.uv.sources]
+common = { workspace = true }
+
+[build-system]
+requires = ["uv_build>=0.12.15,<0.13.0"]
+build-backend = "uv_build"

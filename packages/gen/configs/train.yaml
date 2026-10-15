@@ -1,0 +1,41 @@
+# @package _global_
+
+defaults:
+  - _self_
+  - data: be_latent_text
+  - model: fm
+  - optimizer: adamw
+  - trainer: default
+  - logger: wandb
+  - vocoder: vocbulwark
+  - paths: default
+  - hydra: default
+  - experiment: null
+  - optional local: default
+  - debug: null
+
+task_name: train_gen
+
+# Shared config groups (trainer, optimizer, logger, paths, hydra, vocoder) live in the common package.
+hydra:
+  searchpath:
+    - pkg://common.configs
+
+run_name: ???
+
+tags: ["dev"]
+
+monitor: val/fm
+
+ckpt_path: null
+
+# Trained VAE with fitted latent statistics (`vae-latent-stats`); defines the latent space.
+vae_ckpt: ???
+
+# Sampler used for the validation samples (and as the default of gen-synthesize).
+sampling:
+  n_steps: 32
+  guidance_scale: 2.0
+  method: midpoint
+
+seed: 1234

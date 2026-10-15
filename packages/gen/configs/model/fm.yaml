@@ -1,0 +1,27 @@
+defaults:
+  - text_encoder: char
+
+_target_: gen.model.flow_matching.LatentFlowMatching
+
+latent_dim: null  # set at runtime from the VAE checkpoint
+
+# Transformer over latent frames, text via cross-attention, time via adaLN-zero.
+backbone:
+  d_model: 384
+  depth: 8
+  n_heads: 6
+  ff_mult: 4
+  dropout: 0.1
+  conv_pos_kernel: 31
+
+# Total-length predictor (log latent frames).
+duration:
+  hidden: 256
+  n_layers: 2
+  n_heads: 4
+  dropout: 0.1
+
+sigma_min: 1e-4
+p_uncond: 0.1  # drop the text this often, enables classifier-free guidance
+t_sampling: logit_normal
+duration_weight: 1.0

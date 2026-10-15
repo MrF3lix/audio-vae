@@ -1,0 +1,10 @@
+# Frozen ByT5-small encoder (byte level, multilingual) + trainable adapter.
+_target_: gen.text.encoders.PretrainedTextEncoder
+name: google/byt5-small
+dim: 256
+adapter_layers: 2
+n_heads: 4
+ff_mult: 4
+dropout: 0.1
+cleaner: swiss_german_cased
+hidden_size: 1472

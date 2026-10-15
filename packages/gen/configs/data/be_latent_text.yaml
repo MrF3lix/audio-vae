@@ -1,0 +1,25 @@
+_target_: gen.data.latent_text.LatentTextDataModule
+name: be_latent_text
+
+# Same filelists as the VAE stage (`path|text`).
+train_filelist: ${paths.root_dir}/data/filelists/be/train.txt
+valid_filelist: ${paths.root_dir}/data/filelists/be/val.txt
+
+# Latents are encoded on first use into <latent_cache_root>/<vae run>_<ckpt>_step<k>/, reusing
+# the VAE stage's mel cache.
+vae_ckpt: ${vae_ckpt}
+latent_cache_root: ${paths.root_dir}/data/cache/latents
+mel_cache_dir: ${paths.root_dir}/data/cache/mels_be_vocbulwark
+
+batch_size: 32
+num_workers: 4
+pin_memory: false
+
+# Train on posterior samples instead of posterior means (latent augmentation).
+sample_latent: false
+# Length bucketing: sort pools of this many batches by length before batching.
+pool_batches: 50
+
+root: ${paths.root_dir}
+seed: ${seed}
+device: ${trainer.device}  # for the VAE (cache encoding and decoding validation samples)

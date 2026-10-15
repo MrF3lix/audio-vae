@@ -1,6 +1,0 @@
-_target_: vae.audio.vocoder.VocBulwark.load
-generator_repo: mlr2000/vocoder-large
-speaker_encoder_repo: mlr2000/vocoder-large-speaker-encoder
-# Averaged over 50 corpus clips with:  uv run tts-speaker-embedding --wav-dir data/be/prepared/wav --out data/be_speaker_embedding.pt
-speaker_embedding: ${paths.root_dir}/data/be_speaker_embedding.pt
-device: auto

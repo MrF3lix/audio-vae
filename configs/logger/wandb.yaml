@@ -1,8 +1,0 @@
-wandb:
-  _target_: vae.training.loggers.WandbLogger
-  save_dir: ${paths.output_dir}
-  project: audio-vae
-  entity: felix-saaro-zhaw
-  id: null
-  offline: false
-  tags: ${tags}

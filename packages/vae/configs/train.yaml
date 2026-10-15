@@ -1,0 +1,32 @@
+# @package _global_
+
+defaults:
+  - _self_
+  - data: be_vocbulwark
+  - model: vae
+  - optimizer: adamw
+  - trainer: default
+  - logger: wandb
+  - vocoder: vocbulwark
+  - paths: default
+  - hydra: default
+  - experiment: null
+  - optional local: default
+  - debug: null
+
+task_name: train_vae
+
+# Shared config groups (trainer, optimizer, logger, paths, hydra, vocoder) live in the common package.
+hydra:
+  searchpath:
+    - pkg://common.configs
+
+run_name: ???
+
+tags: ["dev"]
+
+monitor: val/recon
+
+ckpt_path: null
+
+seed: 1234

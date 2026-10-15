@@ -1,0 +1,18 @@
+[project]
+name = "gen"
+version = "0.1.0"
+description = "Text-conditioned generative models (flow / energy matching) in the VAE's latent space"
+requires-python = ">=3.12"
+dependencies = ["common", "vae", "num2words>=0.5.14"]
+
+[project.scripts]
+gen-train = "gen.train:main"
+gen-synthesize = "gen.cli.synthesize:main"
+
+[tool.uv.sources]
+common = { workspace = true }
+vae = { workspace = true }
+
+[build-system]
+requires = ["uv_build>=0.12.15,<0.13.0"]
+build-backend = "uv_build"
