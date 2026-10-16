@@ -75,7 +75,7 @@ def _load_frozen(name: str, device) -> tuple[object, nn.Module]:
         def load(cls):
             try:  # prefer the local Hub cache (no HEAD requests on a flaky connection)
                 return cls.from_pretrained(name, local_files_only=True)
-            except OSError:
+            except (OSError, AttributeError, ValueError):  # missing/partial cache (e.g. config cached, weights not)
                 return cls.from_pretrained(name)
 
         tokenizer = load(AutoTokenizer)
