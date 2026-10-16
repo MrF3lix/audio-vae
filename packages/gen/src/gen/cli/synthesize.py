@@ -13,6 +13,7 @@ Writes `<out>/<index>.wav` (or `<stem>.wav` for filelist items) and `<out>/texts
 from __future__ import annotations
 
 import argparse
+import os
 from pathlib import Path
 
 import hydra
@@ -43,7 +44,11 @@ def main():
     p.add_argument("--batch-size", type=int, default=8)
     p.add_argument("--seed", type=int, default=0)
     p.add_argument("--device", default="auto")
+    p.add_argument("--root-dir", type=Path, default=None,
+                   help="project root to remap the checkpoint's paths to (default: $PROJECT_ROOT or the repo root)")
     args = p.parse_args()
+    if args.root_dir is not None:
+        os.environ["PROJECT_ROOT"] = str(args.root_dir.resolve())
 
     device = resolve_device(args.device)
     ckpt = load_checkpoint(args.ckpt)

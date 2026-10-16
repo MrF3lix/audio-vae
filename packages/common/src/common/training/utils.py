@@ -1,7 +1,9 @@
 from __future__ import annotations
 
+import os
 import hydra
 import copy
+import rootutils
 import torch
 import random
 import numpy as np
@@ -66,8 +68,41 @@ def save_checkpoint(path: str | Path, model: nn.Module, cfg: DictConfig, step: i
     tmp.replace(path)
 
 
-def load_checkpoint(path: str | Path, map_location="cpu") -> dict:
-    return torch.load(path, map_location=map_location, weights_only=False)
+def local_root_dir() -> str | None:
+    """`$PROJECT_ROOT`, else the nearest parent of the cwd containing `.project-root`."""
+    if os.environ.get("PROJECT_ROOT"):
+        return os.environ["PROJECT_ROOT"]
+    try:
+        return str(rootutils.find_root(search_from=Path.cwd(), indicator=".project-root"))
+    except FileNotFoundError:
+        return None
+
+def remap_root_dir(cfg, old: str, new: str):
+    """Replace the `old` project-root prefix of every string in a plain dict/list config (in place)."""
+    old, new = old.rstrip("/"), new.rstrip("/")
+    if isinstance(cfg, dict):
+        items = cfg.items()
+    elif isinstance(cfg, list):
+        items = enumerate(cfg)
+    else:
+        return cfg
+    for key, value in items:
+        if isinstance(value, str) and (value == old or value.startswith(old + "/")):
+            cfg[key] = new + value[len(old):]
+        else:
+            remap_root_dir(value, old, new)
+    return cfg
+
+def load_checkpoint(path: str | Path, map_location="cpu", root_dir: str | Path | None = None) -> dict:
+    """Load a checkpoint, rewriting the absolute paths in its (resolved) config to this machine's
+    project root (`root_dir`, default: `local_root_dir()`), so runs trained elsewhere load locally."""
+    ckpt = torch.load(path, map_location=map_location, weights_only=False)
+    cfg = ckpt.get("cfg")
+    old = (cfg or {}).get("paths", {}).get("root_dir")
+    new = str(root_dir) if root_dir is not None else local_root_dir()
+    if old and new and old.rstrip("/") != new.rstrip("/"):
+        remap_root_dir(cfg, old, new)
+    return ckpt
 
 class EMA:
     """Exponential moving average of a module's parameters and buffers (a frozen shadow copy)."""
